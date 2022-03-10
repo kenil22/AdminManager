@@ -1,3 +1,4 @@
+from os import access
 from flask import Flask, render_template, flash, redirect, url_for, request
 from flask_wtf import FlaskForm
 from wtforms import StringField, IntegerField, PasswordField, BooleanField, SubmitField, RadioField
@@ -32,7 +33,7 @@ class RegistrationForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     confirm = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
-    access = RadioField('I AM:', coerce=int, choices=[(1, "manager"), (0, "user")])
+    access = RadioField('I AM:', coerce=int, choices=[(1, "manager"), (0, "user"), (2, "admin")])
     submit = SubmitField('Register')
 
     def validate_username(self, username):
@@ -97,6 +98,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(30))
     password_hash = db.Column(db.String(128))
     access = db.Column(db.Integer())
+    manager = db.Column(db.Integer())
 
     def __init__(self, name="", email="", password="", username="", access=ACCESS):
         self.name = name
@@ -237,9 +239,12 @@ def account():
 def dashboard():
     return render_template('dashboard.html', pageTitle='My Flask App Dashboard')
 
-#create user via manager
-@app.route('/')
+#manager control panel
+@app.route('/managercontrolpanel')
 @requires_access_level(ACCESS['manager'])
+def manager_control_panel():
+    all_users = User.query.filter_by(access=0)
+    return render_template('control_panel.html',users=all_users, pagetitle='Manager Control Panel')
 
 
 

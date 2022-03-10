@@ -33,7 +33,13 @@
                 </li>
                 {% endif %}
 
-                {% if current_user.is_admin() or current_user.is_user() %}
+                {% if current_user.is_manager() or current_user.is_admin() %}
+                <li class='nav-item'>
+                    <a class='nav-link' href="/managercontrolpanel">Manager Control panel</a>
+                </li>
+                {% endif %}
+
+                {% if current_user.is_admin() or current_user.is_manager() %}
                 <li class="nav-item">
                     <a class="nav-link" href="/dashboard">Dashboard</a>
                 </li>
