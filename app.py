@@ -17,6 +17,7 @@ login.login_message_category = 'danger'  # sets flash category for the default m
 app.config['SECRET_KEY'] = '530cb5ce9d965390aaf2260893d00b236db1b654520727b371c5c9d9ad38e260'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['TESTING'] = False
 db = SQLAlchemy(app)
 
 
@@ -33,7 +34,7 @@ class RegistrationForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     confirm = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
-    access = RadioField('I AM:', coerce=int, choices=[(1, "manager"), (0, "user"), (2, "admin")])
+    access = RadioField('I AM:', coerce=int, choices=[(1, "manager"), (0, "user")])
     submit = SubmitField('Register')
 
     def validate_username(self, username):
@@ -45,6 +46,7 @@ class RegistrationForm(FlaskForm):
         user = User.query.filter_by(email=email.data).first()
         if user is not None:
             raise ValidationError('Please use a different email address.')
+
 
 
 class NewUserForm(FlaskForm):
@@ -179,11 +181,13 @@ def register():
     return render_template('register.html', pageTitle='Register | My Flask App', form=form)
 
 
+
 # user login
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if current_user.is_authenticated:
+        print(current_user, 'currentuser')
         return redirect(url_for('index'))
     form = LoginForm()
     if form.validate_on_submit():
@@ -202,6 +206,7 @@ def login():
 
 # logout
 @app.route('/logout')
+@login_required
 def logout():
     logout_user()
     flash('You have successfully logged out.', 'success')
@@ -257,7 +262,7 @@ def control_panel():
     return render_template('control_panel.html', users=all_users, pageTitle='My Flask App Control Panel')
 
 
-# user details & update
+# user details & update for admin
 @app.route('/user_detail/<int:user_id>', methods=['GET', 'POST'])
 @requires_access_level(ACCESS['admin'])
 def user_detail(user_id):
@@ -270,8 +275,22 @@ def user_detail(user_id):
     form.access.data = user.access
     return render_template('user_detail.html', form=form, pageTitle='User Details')
 
+# user details & update for manager
+@app.route('/user_detail_manager/<int:user_id>', methods=['GET', 'POST'])
+@requires_access_level(ACCESS['manager'])
+def user_detail_manager(user_id):
+    user = User.query.get_or_404(user_id)
+    form = UserDetailForm()
+    form.id.data = user.id
+    form.name.data = user.name
+    form.email.data = user.email
+    form.username.data = user.username
+    form.access.data = user.access
+    return render_template('user_detail_manager.html', form=form, pageTitle='User Details')
 
-# update user
+
+
+# update user for admin
 @app.route('/update_user/<int:user_id>', methods=['POST'])
 @requires_access_level(ACCESS['admin'])
 def update_user(user_id):
@@ -301,8 +320,38 @@ def update_user(user_id):
 
     return redirect(url_for('control_panel'))
 
+# update user for manager
+@app.route('/update_user_manager/<int:user_id>', methods=['POST'])
+@requires_access_level(ACCESS['manager'])
+def update_user_manager(user_id):
+    user = User.query.get_or_404(user_id)
+    form = UserDetailForm()
 
-# delete user
+    orig_user = user.username  # get user details stored in the database - save username into a variable
+
+    if form.validate_on_submit():
+        user.name = form.name.data
+        user.email = form.email.data
+
+        new_user = form.username.data
+
+        if new_user != orig_user:  # if the form data is not the same as the original username
+            valid_user = User.query.filter_by(username=new_user).first()  # query the database for the username
+            if valid_user is not None:
+                flash("That username is already taken...", 'danger')
+                return redirect(url_for('manager_control_panel'))
+
+        # if the values are the same, we can move on.
+        user.username = form.username.data
+        user.access = request.form['access_lvl']
+        db.session.commit()
+        flash('The user has been updated.', 'success')
+        return redirect(url_for('manager_control_panel'))
+
+    return redirect(url_for('manager_control_panel'))
+
+
+# delete user for admin
 @app.route('/delete_user/<int:user_id>', methods=['POST'])
 @requires_access_level(ACCESS['admin'])
 def delete_user(user_id):
@@ -315,9 +364,23 @@ def delete_user(user_id):
 
     return redirect(url_for('control_panel'))
 
+# delete user for manager
+@app.route('/delete_user_manager/<int:user_id>', methods=['POST'])
+@requires_access_level(ACCESS['manager'])
+def delete_user_manager(user_id):
+    if request.method == 'POST':  # if it's a POST request, delete the friend from the database
+        user = User.query.get_or_404(user_id)
+        db.session.delete(user)
+        db.session.commit()
+        flash('User has been deleted.', 'success')
+        return redirect(url_for('manager_control_panel'))
+    
+    return redirect(url_for('manager_control_panel'))
 
-# new user
+
+# new user by admin
 @app.route('/new_user', methods=['GET', 'POST'])
+@requires_access_level(ACCESS['admin'])
 def new_user():
     form = NewUserForm()
 
@@ -332,6 +395,23 @@ def new_user():
 
     return render_template('new_user.html', pageTitle='New User | My Flask App', form=form)
 
+# new user by manager
+@app.route('/new_user_manager', methods=['GET', 'POST'])
+@requires_access_level(ACCESS['manager'])
+def new_user_manager():
+    form = NewUserForm()
+
+    if request.method == 'POST' and form.validate_on_submit():
+        user = User(name=form.name.data, username=form.username.data, email=form.email.data)
+        user.set_password(form.password.data)
+        user.access = request.form['access_lvl']
+        db.session.add(user)
+        db.session.commit()
+        flash('User has been successfully created.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('new_user_manager.html', pageTitle='New User | My Flask App', form=form)
+
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=80, debug=True)

@@ -37,7 +37,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\Ronak\Admin_manager_user\env"
+VIRTUAL_ENV="C:\Users\kenilshah\PycharmProjects\Admin\Admin_manager_user\env"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
