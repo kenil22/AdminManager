@@ -13,7 +13,11 @@
                 <th>Name</th>
                 <th>E-mail</th>
                 <th>Username</th>
+                {% if current_user.access == 1 %}
+                <th>Manager</th>
+                {% endif %}
                 <th>Access Level</th>
+
                 <th>
                     {% if current_user.access == 2 %}
                     <form action="{{ url_for('new_user') }}" method="GET">
@@ -35,6 +39,11 @@
                 <td> {{ row.name }}</td>
                 <td> {{ row.email }}</td>
                 <td> {{ row.username }}</td>
+                {% if current_user.access == 1 %}
+                <td> {{ row.manager }}</td>
+                {% endif %}
+
+
                 <td>
                     {% if row.access == 1 %} Manager {% elif row.access == 2 %} Admin {% elif row.access == 0 %} User {% else %} -- {% endif %}
 

@@ -56,6 +56,8 @@ class NewUserForm(FlaskForm):
     password = PasswordField('Password', validators=[DataRequired()])
     confirm = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
     access = IntegerField('Access: ')
+    manager = IntegerField('Manager: ')
+
     submit = SubmitField('Create User')
 
     def validate_username(self, username):
@@ -75,6 +77,7 @@ class UserDetailForm(FlaskForm):
     username = StringField('Username: ', validators=[DataRequired()])
     email = StringField('Email: ', validators=[DataRequired(), Email()])
     access = IntegerField('Access: ')
+    manager = IntegerField('Manager: ')
 
 
 class AccountDetailForm(FlaskForm):
@@ -83,6 +86,7 @@ class AccountDetailForm(FlaskForm):
     email = StringField('Email: ', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     confirm = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
+    manager = IntegerField('Manager: ')
 
 
 ACCESS = {
@@ -102,12 +106,13 @@ class User(UserMixin, db.Model):
     access = db.Column(db.Integer())
     manager = db.Column(db.Integer())
 
-    def __init__(self, name="", email="", password="", username="", access=ACCESS):
+    def __init__(self, name="", email="", password="", username="", access=ACCESS, manager=""):
         self.name = name
         self.email = email
         self.username = username
         self.password = generate_password_hash(password)
         self.access = access
+        self.manager = manager
 
     def is_admin(self):
         return self.access == ACCESS['admin']
@@ -172,7 +177,7 @@ def register():
         return redirect(url_for('index'))
     form = RegistrationForm()
     if form.validate_on_submit():
-        user = User(name=form.name.data, username=form.username.data, email=form.email.data, access=form.access.data)
+        user = User(name=form.name.data, username=form.username.data, email=form.email.data, access=form.access.data )
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
@@ -285,7 +290,9 @@ def user_detail_manager(user_id):
     form.name.data = user.name
     form.email.data = user.email
     form.username.data = user.username
+    form.manager.data = user.manager
     form.access.data = user.access
+    
     return render_template('user_detail_manager.html', form=form, pageTitle='User Details')
 
 
@@ -402,7 +409,8 @@ def new_user_manager():
     form = NewUserForm()
 
     if request.method == 'POST' and form.validate_on_submit():
-        user = User(name=form.name.data, username=form.username.data, email=form.email.data)
+        manager = current_user.id
+        user = User(name=form.name.data, username=form.username.data, email=form.email.data, manager = manager)
         user.set_password(form.password.data)
         user.access = request.form['access_lvl']
         db.session.add(user)
